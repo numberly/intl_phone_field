@@ -3,6 +3,7 @@ library intl_phone_field;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl_phone_field/country_picker_dialog.dart';
 
@@ -199,6 +200,11 @@ class IntlPhoneField extends StatefulWidget {
   /// Default value is `true`.
   final bool showCountryFlag;
 
+  /// Custom error display
+  ///
+  /// Default is red text below the Phone Number picker
+  final Widget Function(bool hasError, String? validatorMessage)? errorDisplay;
+
   /// Message to be displayed on autoValidate error
   ///
   /// Default value is `Invalid Mobile Number`.
@@ -283,6 +289,7 @@ class IntlPhoneField extends StatefulWidget {
     this.disableMinLengthCheck = false,
     this.disableMaxLengthCheck = false,
     this.flagsButtonPadding = EdgeInsets.zero,
+    this.errorDisplay,
     this.invalidNumberMessage = 'Invalid Mobile Number',
     this.numberRequiredMessage = 'Mobile Number Required',
     this.cursorHeight,
@@ -374,85 +381,102 @@ class _IntlPhoneFieldState extends State<IntlPhoneField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      initialValue: (widget.controller == null) ? number : null,
-      readOnly: widget.readOnly,
-      obscureText: widget.obscureText,
-      textAlign: widget.textAlign,
-      textAlignVertical: widget.textAlignVertical,
-      cursorColor: widget.cursorColor,
-      onTap: widget.onTap,
-      controller: widget.controller,
-      focusNode: widget.focusNode,
-      cursorHeight: widget.cursorHeight,
-      cursorRadius: widget.cursorRadius,
-      cursorWidth: widget.cursorWidth,
-      showCursor: widget.showCursor,
-      onFieldSubmitted: widget.onSubmitted,
-      decoration: widget.decoration.copyWith(
-        prefixIcon: _buildFlagsButton(),
-        counterText: !widget.enabled ? '' : null,
-      ),
-      style: widget.style,
-      onSaved: (value) {
-        widget.onSaved?.call(
-          PhoneNumber(
-            countryISOCode: _selectedCountry.code,
-            countryCode: '+${_selectedCountry.dialCode}',
-            number: value!,
+    return Column(
+      children: [
+        TextFormField(
+          initialValue: (widget.controller == null) ? number : null,
+          readOnly: widget.readOnly,
+          obscureText: widget.obscureText,
+          textAlign: widget.textAlign,
+          textAlignVertical: widget.textAlignVertical,
+          cursorColor: widget.cursorColor,
+          onTap: widget.onTap,
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          cursorHeight: widget.cursorHeight,
+          cursorRadius: widget.cursorRadius,
+          cursorWidth: widget.cursorWidth,
+          showCursor: widget.showCursor,
+          onFieldSubmitted: widget.onSubmitted,
+          decoration: widget.decoration.copyWith(
+            prefixIcon: _buildFlagsButton(),
+            counterText: !widget.enabled ? '' : null,
           ),
-        );
-      },
-      onChanged: (value) async {
-        final phoneNumber = PhoneNumber(
-          countryISOCode: _selectedCountry.code,
-          countryCode: '+${_selectedCountry.dialCode}',
-          number: value,
-        );
+          style: widget.style,
+          onSaved: (value) {
+            widget.onSaved?.call(
+              PhoneNumber(
+                countryISOCode: _selectedCountry.code,
+                countryCode: '+${_selectedCountry.dialCode}',
+                number: value!,
+              ),
+            );
+          },
+          onChanged: (value) async {
+            final phoneNumber = PhoneNumber(
+              countryISOCode: _selectedCountry.code,
+              countryCode: '+${_selectedCountry.dialCode}',
+              number: value,
+            );
 
-        if (widget.autovalidateMode != AutovalidateMode.disabled) {
-          validatorMessage = await widget.validator?.call(phoneNumber);
-        }
+            if (widget.autovalidateMode != AutovalidateMode.disabled) {
+              validatorMessage = await widget.validator?.call(phoneNumber);
+            }
 
-        widget.onChanged?.call(phoneNumber);
-      },
-      validator: (value) {
-        if (!widget.disableMinLengthCheck &&
-            !widget.disableMaxLengthCheck &&
-            value != null) {
-          if (value.isEmpty) {
-            return widget.numberRequiredMessage;
-          } else if (value.length < _selectedCountry.minLength ||
-              value.length > _selectedCountry.maxLength) {
-            return widget.invalidNumberMessage;
-          }
-        } else if (widget.disableMinLengthCheck &&
-            !widget.disableMaxLengthCheck &&
-            value != null) {
-          if (value.length > _selectedCountry.maxLength) {
-            return widget.invalidNumberMessage;
-          }
-        } else if (widget.disableMaxLengthCheck &&
-            !widget.disableMinLengthCheck &&
-            value != null) {
-          if (value.isEmpty) {
-            return widget.numberRequiredMessage;
-          }
-          if (value.length < _selectedCountry.minLength) {
-            return widget.invalidNumberMessage;
-          }
-        }
-        return validatorMessage;
-      },
-      maxLength:
-          widget.disableMaxLengthCheck ? null : _selectedCountry.maxLength,
-      keyboardType: widget.keyboardType,
-      inputFormatters: widget.inputFormatters,
-      enabled: widget.enabled,
-      keyboardAppearance: widget.keyboardAppearance,
-      autofocus: widget.autofocus,
-      textInputAction: widget.textInputAction,
-      autovalidateMode: widget.autovalidateMode,
+            widget.onChanged?.call(phoneNumber);
+          },
+          validator: (value) {
+            String? validatorCreatedMessage;
+            if (!widget.disableMinLengthCheck &&
+                !widget.disableMaxLengthCheck &&
+                value != null) {
+              if (value.isEmpty) {
+                validatorCreatedMessage = widget.numberRequiredMessage;
+              } else if (value.length < _selectedCountry.minLength ||
+                  value.length > _selectedCountry.maxLength) {
+                validatorCreatedMessage = widget.invalidNumberMessage;
+              }
+            } else if (widget.disableMinLengthCheck &&
+                !widget.disableMaxLengthCheck &&
+                value != null) {
+              if (value.length > _selectedCountry.maxLength) {
+                validatorCreatedMessage = widget.invalidNumberMessage;
+              }
+            } else if (widget.disableMaxLengthCheck &&
+                !widget.disableMinLengthCheck &&
+                value != null) {
+              if (value.isEmpty) {
+                validatorCreatedMessage = widget.numberRequiredMessage;
+              }
+              if (value.length < _selectedCountry.minLength) {
+                validatorCreatedMessage = widget.invalidNumberMessage;
+              }
+            }
+            if (widget.errorDisplay != null) {
+              SchedulerBinding.instance.addPostFrameCallback((duration) {
+                setState(() {
+                  validatorMessage = validatorCreatedMessage;
+                });
+              });
+              return ' ';
+            }
+            return validatorCreatedMessage ?? validatorMessage;
+          },
+          maxLength:
+              widget.disableMaxLengthCheck ? null : _selectedCountry.maxLength,
+          keyboardType: widget.keyboardType,
+          inputFormatters: widget.inputFormatters,
+          enabled: widget.enabled,
+          keyboardAppearance: widget.keyboardAppearance,
+          autofocus: widget.autofocus,
+          textInputAction: widget.textInputAction,
+          autovalidateMode: widget.autovalidateMode,
+        ),
+        (widget.errorDisplay != null)
+            ? widget.errorDisplay!(
+                validatorMessage?.isNotEmpty ?? false, validatorMessage)
+            : SizedBox(),
+      ],
     );
   }
 

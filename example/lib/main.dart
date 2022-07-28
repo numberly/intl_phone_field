@@ -64,6 +64,9 @@ class _MyAppState extends State<MyApp> {
                   onCountryChanged: (country) {
                     print('Country changed to: ' + country.name);
                   },
+                  //autovalidateMode: AutovalidateMode.disabled,
+                  errorDisplay: (hasError, validatorMessage) => DisplayError(
+                      hasError: hasError, validatorMessage: validatorMessage),
                 ),
                 SizedBox(
                   height: 10,
@@ -80,6 +83,50 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class DisplayError extends StatelessWidget {
+  final bool hasError;
+  final String? validatorMessage;
+
+  const DisplayError({Key? key, required this.hasError, this.validatorMessage})
+      : super(key: key);
+
+  Widget _displayMessage(String? message) {
+    if (message == null || message.isEmpty) {
+      return SizedBox();
+    }
+    return Text(
+      message,
+      style: TextStyle(color: Colors.white),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasError) {
+      return SizedBox();
+    }
+    return Padding(
+      padding: EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+              color: Colors.red,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _displayMessage(validatorMessage),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
